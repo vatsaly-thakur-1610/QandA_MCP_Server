@@ -11,7 +11,7 @@ A Model Context Protocol (MCP) server that enables AI agents (Claude Desktop or 
 3. [Tool Documentation](#tool-documentation)
 4. [Example Interaction Log](#example-interaction-log)
 5. [Vibe Coding Setup](#vibe-coding-setup)
-6. [Known Limitations & Future Work](#known-limitations--future-work)
+6. [Limitations, Reflections & Future Work](#limitations-reflections--future-work)
 
 ---
 
@@ -169,8 +169,9 @@ Add this to your `claude_desktop_config.json` (Which you can find by opening cla
 }
 ```
 
-Restart Claude Desktop after saving. Again go to the developers section to see wether the mcp server is up and running you should see something like this qanda-mcp-server - Name of our MCP server 
-running - status
+Restart Claude Desktop after saving. Again go to the developers section to see wether the mcp server is up and running you should see something like this qanda-mcp-server - Name of our MCP server and the status which shows "running"
+<img width="1712" height="822" alt="Screenshot 2026-04-26 103025" src="https://github.com/user-attachments/assets/ba5547d2-d3a7-4acd-b635-3835e8c0fe39" />
+
 
 ---
 
@@ -184,7 +185,7 @@ This server exposes two MCP tools. The first is a simple utility tool and the se
 
 Lists all PDF files currently loaded in the knowledge base. Useful for knowing what documents the server has indexed before asking questions.
 
-**Input:** None
+**Input:** Ask for the Documents in knowledge Base
 
 **Output:** A numbered list of all indexed PDF filenames.
 
@@ -262,7 +263,8 @@ Indexed documents (6):
 5. NYSE_UNH_2020.pdf
 6. Nexla_Software Engineer_Assignment.pdf
 ```
-
+<img width="1037" height="770" alt="Screenshot 2026-04-26 103025" src="https://github.com/user-attachments/assets/e900c568-8731-4a61-ac2a-1441aadc1a77" />
+<img width="843" height="565" alt="Screenshot 2026-04-26 103658" src="https://github.com/user-attachments/assets/7048bf74-461e-4bf1-8f36-477922574a19" />
 ---
 
 ### Interaction 2 — Querying across documents (`query_documents`)
@@ -279,6 +281,7 @@ throughout the conversational turns in a dialogue system.
 Document Sources:
 - 2020.starsem-1.17.pdf (Page 0)
 ```
+<img width="932" height="531" alt="Screenshot 2026-04-26 103942" src="https://github.com/user-attachments/assets/480d3a09-7bb7-48a8-8591-9be86c4910a7" />
 
 ---
 
@@ -304,6 +307,7 @@ Document Sources:
 - NYSE_UNH_2020.pdf (Page 7)
 
 ```
+<img width="952" height="652" alt="Screenshot 2026-04-26 104028" src="https://github.com/user-attachments/assets/b12943db-0202-4281-a7d9-7593c3523a64" />
 
 ---
 
