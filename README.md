@@ -235,6 +235,8 @@ Before generation, the context (from PDFs, web, or both) is broken down sentence
 **5. Generation**
 The LLM generates the final answer using only the kept sentences as context. It is instructed to answer solely from the provided context and say "I don't know" if the context is insufficient.
 
+<img width="195" height="688" alt="Screenshot 2026-04-26 105032" src="https://github.com/user-attachments/assets/1de23472-67af-4e24-b2eb-4aad55bb5809" />
+
 **Input:**
 
 | Parameter | Type | Description |
