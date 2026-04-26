@@ -19,11 +19,8 @@ A Model Context Protocol (MCP) server that enables AI agents (Claude Desktop or 
 
 ```
 documents/
-  ├── NYSE_UNH_2020.pdf
-  ├── FBS_PM_29NOV2023_Public.pdf
-  ├── C18-1117.pdf
-  ├── 2020.starsem-1.17.pdf
-  └── 2020.findings-emnlp.139.pdf
+  ├── file1.pdf
+  └── file2.pdf
         │
         ▼
   [Ingestion — src/ingestion/]
@@ -32,33 +29,32 @@ documents/
         │
         ▼
   [Retrieval — src/retrieval/]
-  FAISS (dense, MMR, top-5)  +  BM25 (keyword, top-5)
-  → deduplicated merge, capped at 8 docs
+  FAISS (dense, MMR, top-5) + BM25 (keyword, top-5)
+  → deduplicated, capped at 8 docs
         │
         ▼
   [LangGraph Pipeline — src/graph/]
         │
         ├── retrieve       — hybrid FAISS + BM25 fetch
+        │
         ├── eval_each_doc  — LLM scores each chunk [0.0–1.0]
-        │       │
-        │    CORRECT (any score > 0.7)
-        │       └──────────────────────────┐
-        │    INCORRECT / AMBIGUOUS         │
-        │       │                          │
-        ├── rewrite_query                  │
-        │   (LLM rewrites as web query)    │
-        ├── web_search                     │
-        │   (Tavily top-5 results)         │
-        │                                  │
-        └──────────────────────────────────┘
-                          │
-                       refine
-                  (sentence-level LLM filter)
-                          │
-                       generate
-                  (GPT-4o-mini answers from kept context)
-                          │
-                       answer + sources → MCP tool response
+        │
+        │   ┌───────────┐  ┌───────────┐  ┌───────────┐
+        │   │ INCORRECT │  │ AMBIGUOUS │  │  CORRECT  │
+        │   │ all < 0.3 │  │  (mixed)  │  │ any > 0.7 │
+        │   │  web only │  │ PDF + web │  │  PDF only │
+        │   └─────┬─────┘  └─────┬─────┘  └─────┬─────┘
+        │         └──────┬───────┘              │
+        │                │                      │
+        ├── rewrite_query + web_search (Tavily) | 
+        │                └──────────────────────┘
+        │                          │
+        ├── refine ------> sentence-level LLM filter
+        │                          |
+        └── generate-----> GPT-4o-mini (temp=0.2)
+                  │
+                  ▼
+        answer + sources → MCP tool response
 ```
 
 ### Technology Stack
@@ -89,9 +85,9 @@ QandA_MCP_Server/
 │   │   
 │   └── prompts/             # All LLM prompt templates
 │       
-├── documents/               # PDF corpus (not committed to git)
+├── documents/               # PDF corpus 
 ├── pyproject.toml
-└── .env                     # API keys (not committed to git)
+└── .env                     # API keys 
 ```
 
 ---
@@ -101,20 +97,27 @@ QandA_MCP_Server/
 ### Prerequisites
 
 - Python 3.10+
-- [`uv`](https://github.com/astral-sh/uv) package manager
 - OpenAI API key
 - Tavily API key (free tier available at [tavily.com](https://tavily.com))
 
-### 1. Clone the repository
+### 1. Install uv
 
 ```bash
-git clone <your-repo-url>
+pip install uv
+```
+
+> **Note:** On some Windows setups `uv` is not recognised as a command after installation. Use `python -m uv` as a prefix for all `uv` commands instead (e.g. `python -m uv sync`).
+
+### 2. Clone the repository
+
+```bash
+git clone https://github.com/vatsaly-thakur-1610/QandA_MCP_Server.git
 cd QandA_MCP_Server
 ```
 
-### 2. Add your PDF documents
+### 3. Add your PDF documents
 
-Place your PDF files in the `documents/` folder:
+The `documents/` folder already exists. Drop your PDF files into it:
 
 ```
 documents/
@@ -122,7 +125,7 @@ documents/
   └── your_file_2.pdf
 ```
 
-### 3. Configure environment variables
+### 4. Configure environment variables
 
 Create a `.env` file in the project root:
 
@@ -131,47 +134,43 @@ OPENAI_API_KEY=sk-...
 TAVILY_API_KEY=tvly-...
 ```
 
-### 4. Install dependencies
+### 5. Install dependencies
 
 ```bash
-uv sync
+python -m uv sync
 ```
 
-### 5. Run the server
+> **Note:** On first run the server builds the FAISS index (OpenAI embedding API calls). This takes a few seconds depending on corpus size. Subsequent runs are fast.
 
-**Test via CLI:**
+### 6. Connect to Claude Desktop
+
+Find your `uv` executable path:
+
 ```bash
-uv run python main.py
+pip show uv
 ```
 
-**Test via MCP Inspector:**
-```bash
-uv run fastmcp dev main.py
-```
+Take the `Location` from the output — `uv.exe` is in the `Scripts` folder one level up from it.
 
-**Connect to Claude Desktop** — add this to your `claude_desktop_config.json`:
+Add this to your `claude_desktop_config.json` (Which you can find by opening claude desktop -> click on your profile -> go to settings -> select developers tab -> click on Edit Config or an alternate way can be found on Windows at `%APPDATA%\Claude\claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "qanda-mcp-server": {
-      "command": "/path/to/uv",
+      "command": "C:\\path\\to\\Scripts\\uv.exe",
       "args": [
         "run",
-        "--project", "/absolute/path/to/QandA_MCP_Server",
-        "python", "/absolute/path/to/QandA_MCP_Server/main.py"
+        "--project", "C:\\absolute\\path\\to\\QandA_MCP_Server",
+        "python", "C:\\absolute\\path\\to\\QandA_MCP_Server\\main.py"
       ]
     }
   }
 }
 ```
 
-On Windows the config file is at:
-```
-%APPDATA%\Claude\claude_desktop_config.json
-```
-
-> **Note:** On first query the server builds the FAISS index (OpenAI embedding API calls). This takes 20–60 seconds depending on corpus size. Subsequent queries are fast.
+Restart Claude Desktop after saving. Again go to the developers section to see wether the mcp server is up and running you should see something like this qanda-mcp-server - Name of our MCP server 
+running - status
 
 ---
 
@@ -203,7 +202,7 @@ Indexed documents (5):
 
 ### Tool 2: `query_documents` — Corrective RAG (CRAG)
 
-This is the core tool. Under the hood it implements **Corrective RAG (CRAG)**, which is an improvement over traditional RAG.
+This is the core tool. Under the hood it implements **Corrective RAG (CRAG)**, which is a significant improvement over traditional RAG.
 
 **What's wrong with traditional RAG?**
 
@@ -225,8 +224,9 @@ Each of the retrieved chunks is individually scored by `gpt-4o-mini` on a scale 
 - **AMBIGUOUS** — scores fall in between. The PDFs have partial information.
 
 **3. Routing**
-- If **CORRECT** → proceed directly to refinement using the good chunks.
-- If **INCORRECT** or **AMBIGUOUS** → the question is rewritten into a web search query by the LLM and sent to **Tavily**, which fetches up to 5 live web results. This is the fallback mechanism — instead of saying "I don't know" or hallucinating, the system goes to the web.
+- If **CORRECT** → proceed directly to refinement using the good chunks from the PDFs.
+- If **INCORRECT** → all chunks scored below 0.3, meaning the PDFs have no useful information. The question is rewritten as a web search query and sent to **Tavily** (top-5 results). Only web results are used in refinement.
+- If **AMBIGUOUS** → scores fall in between. The question is also sent to Tavily, but both the good PDF chunks and the web results are merged and used together in refinement.
 
 **4. Refinement**
 Before generation, the context (from PDFs, web, or both) is broken down sentence by sentence. Each sentence is individually evaluated by the LLM — only sentences that directly help answer the question are kept. This strips out noise even from good documents.
@@ -242,99 +242,68 @@ The LLM generates the final answer using only the kept sentences as context. It 
 
 **Output:**
 
-- The grounded answer
-- `**Document Sources:**` — PDF filenames and page numbers (when PDFs had a confident answer)
-- `**Web Sources:**` — title and URL of web results (when Tavily was used)
-- A note indicating if a web search was triggered
-
-**Example query:**
-```
-What are UnitedHealth Group's clinical programs for chronic conditions?
-```
-
-**Example output:**
-```
-**Document Sources:**
-- NYSE_UNH_2020.pdf (Page 5)
-- NYSE_UNH_2020.pdf (Page 12)
-
-UnitedHealthcare Employer and Individual's clinical programs include condition-specific
-programs for asthma, cancer, diabetes, heart disease, and kidney disease...
-```
+The grounded answer along with sources cited — document names and page numbers from PDFs, or web source titles and URLs if a web search was triggered.
 
 ---
 
 ## Example Interaction Log
 
-### Q1 — What is OptumRx?
+### Interaction 1 — Listing the knowledge base (`list_documents`)
 
-**Question:** What is OptumRx?
+**Prompt:** List all the documents in the knowledge base.
 
 **Response:**
 ```
-**Document Sources:**
-- NYSE_UNH_2020.pdf (Page 2)
-- NYSE_UNH_2020.pdf (Page 5)
-- NYSE_UNH_2020.pdf (Page 82)
-
-OptumRx is a pharmacy care services provider that offers a full spectrum of services
-through a network of over 67,000 retail pharmacies, home delivery, specialty and community
-health pharmacies, and in-home and pharmacy infusion services. It manages limited and
-ultra-limited distribution drugs in areas such as oncology, HIV, pain management, and
-ophthalmology. OptumRx integrates pharmacy and medical care, utilizing demographic,
-medical, laboratory, pharmaceutical, and clinical data to enhance clinical quality and
-manage costs. It serves health benefits providers, employers, and government entities,
-and offers clinical programs and digital tools to improve health outcomes and medication
-adherence.
+Indexed documents (6):
+1. 2020.findings-emnlp.139.pdf
+2. 2020.starsem-1.17.pdf
+3. C18-1117.pdf
+4. FBS_PM_29NOV2023_Public.pdf
+5. NYSE_UNH_2020.pdf
+6. Nexla_Software Engineer_Assignment.pdf
 ```
-
-**Verdict:** CORRECT — answer drawn entirely from PDF documents.
 
 ---
 
-### Q2 — Clinical programs for employer groups
+### Interaction 2 — Querying across documents (`query_documents`)
 
-**Question:** What does UnitedHealthcare Employer and Individual's clinical programs have?
+**Question:** What is DST?
 
 **Response:**
 ```
-**Document Sources:**
-- NYSE_UNH_2020.pdf (Page 5)
-- NYSE_UNH_2020.pdf (Page 9)
+DST stands for Dialog State Tracking. It involves maintaining a set of
+⟨domain, slot, value⟩ triplets to track all the states accumulated
+throughout the conversational turns in a dialogue system.
 
-UnitedHealthcare Employer and Individual's clinical programs include condition-specific
-programs designed to help employees manage complex or chronic conditions such as asthma,
-cancer, diabetes, heart disease, and kidney disease. These programs provide personalized
-care plans, timely outreach, clinical support, and personal guidance. They use data and
-analytics to identify at-risk employees for targeted support across 50+ conditions.
-Additional offerings include type 2 diabetes management solutions and Personal Health
-Support, which screens employees for acute and chronic conditions to lower medical costs
-and improve outcomes.
+--- SOURCES CITED ---
+Document Sources:
+- 2020.starsem-1.17.pdf (Page 0)
 ```
-
-**Verdict:** CORRECT — answer drawn entirely from PDF documents.
 
 ---
 
-### Q3 — Regulatory risks
+### Interaction 3 — Querying a specific document (`query_documents`)
 
-**Question:** What are the Regulatory Trends and Uncertainties?
+**Question:** What does UnitedHealthcare Employer & Individual's clinical programs include?
 
 **Response:**
 ```
-**Document Sources:**
-- NYSE_UNH_2020.pdf (Page 14)
-- NYSE_UNH_2020.pdf (Page 17)
+UnitedHealthcare Employer & Individual's clinical programs include:
+- Wellness programs
+- Decision support
+- Utilization management
+- Case and disease management
+- Complex condition management
+- On-site programs (such as biometrics and flu shots)
+- Incentives for positive behavior change
+- Mental health / substance use disorder management
+- Employee assistance programs
 
-UnitedHealth Group faces regulatory uncertainty from potential changes to the Affordable
-Care Act, Medicare Advantage reimbursement rates, and Medicaid funding. The company is
-subject to extensive federal and state regulation around health plan operations, pharmacy
-benefit management, and data privacy. Key risks include shifts in government-sponsored
-program funding, evolving price transparency requirements, and regulatory scrutiny of
-vertical integration across insurance and care delivery businesses.
+--- SOURCES CITED ---
+Document Sources:
+- NYSE_UNH_2020.pdf (Page 7)
+
 ```
-
-**Verdict:** CORRECT — answer drawn entirely from PDF documents.
 
 ---
 
@@ -349,14 +318,19 @@ vertical integration across insurance and care delivery businesses.
 Claude Code was used throughout the project as a development aid — helping implement the pipeline, refactor the codebase into a clean modular structure, and debug integration issues. Some specific areas where it added real value:
 
 - **Pipeline optimization** — Used Claude to sanity-check design decisions and suggest improvements during development, such as retrieval configuration, prompt quality for the evaluator and filter chains, and how context is prepared before being sent to the LLM.
-- **Refactoring** — Once the core pipeline was working, Claude assisted in breaking it out from a single file into a clean `src/<module>/__init__.py` package structure without breaking existing behavior.
+- **Refactoring** — Once the core pipeline was working, Claude assisted in breaking it out from a single file into a clean modular package structure without breaking existing behavior.
 - **Debugging** — Useful for diagnosing multi-layer integration errors, particularly around MCP server connectivity and path resolution issues when launched from Claude Desktop.
+- **Code review** — Used Claude Code to review the final codebase for quality, consistency, and any issues that are easy to miss when deep in the implementation.
+
+**Perplexity Pro**
+
+Used to find relevant documents and resources throughout the project, saving a significant amount of time that would otherwise go into manual searching. Also helpful in explaining some of the more critical and complicated concepts encountered along the way.
 
 > **Note:** Claude Code requires an Anthropic subscription. A solid free alternative is **[Open Code](https://open-vsx.org/extension/opencode-ai/opencode)** (VS Code extension), which gives access to several free-tier models including Nvidia's **Nemotron** — capable models that work well for most coding tasks without any cost.
 
 ---
 
-## Known Limitations & Future Work
+## Limitations, Reflections & Future Work
 
 ### Semantic Chunking
 
@@ -377,3 +351,7 @@ The result is chunks that are semantically coherent — each chunk covers one id
 The reason it was not used here is a latency trade-off. Because `SemanticChunker` calls the embedding API for every sentence in every document at startup, the indexing step is significantly slower — slow enough that the MCP client (Claude Desktop) would time out waiting for the server to become ready before it had finished building the index. Additionally, the splitter is still housed in `langchain_experimental`, signalling it is not yet considered stable for production use.
 
 The trade-off between chunk quality and startup latency was not compelling enough to justify it for this implementation, but switching to `SemanticChunker` would be the most impactful improvement to make next.
+
+### AI as a Tool, Not a Crutch
+
+AI tooling — Claude Code for development and code review, Perplexity Pro for research — works best as an aid, checker, and optimizer, not as a replacement for engineering judgement. Design decisions, architectural trade-offs, and key implementation choices still need to be owned by the developer. It helps you move faster, catch mistakes earlier, and surface better options — but every suggestion should be evaluated, and not everything it proposes will fit your actual requirements. That balance is what makes the tooling genuinely useful.
