@@ -332,7 +332,7 @@ Claude Code was used throughout the project as a development aid — helping imp
 
 Used to find relevant documents and resources throughout the project, saving a significant amount of time that would otherwise go into manual searching. Also helpful in explaining some of the more critical and complicated concepts encountered along the way.
 
-> **Note:** Claude Code requires an Anthropic subscription. A solid free alternative is **[Open Code](https://open-vsx.org/extension/opencode-ai/opencode)** (VS Code extension), which gives access to several free-tier models including Nvidia's **Nemotron** — capable models that work well for most coding tasks without any cost.
+> **Note:** Claude Code requires an Anthropic subscription. A solid free alternative is **Open Code**, a free open-source coding agent that provides access to several capable free-tier models including (Nvidia's) **Nemotron** and **MiniMax 2.5** — which work well for most coding tasks at no cost.
 
 ---
 
